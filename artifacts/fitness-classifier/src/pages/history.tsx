@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { Camera } from "lucide-react";
-import { sessionHeaders } from "@/lib/session";
+import { authHeaders } from "@/lib/auth-store";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,7 +19,7 @@ export default function History() {
   const { data: rows = [], isLoading } = useQuery<Classification[]>({
     queryKey: ["history"],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/history`, { headers: sessionHeaders() });
+      const r = await fetch(`${basePath}/api/history`, { headers: authHeaders() });
       if (!r.ok) throw new Error();
       return r.json();
     },
