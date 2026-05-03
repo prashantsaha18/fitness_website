@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { Plus, TrendingUp, TrendingDown, Minus, Ruler } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { sessionHeaders } from "@/lib/session";
+import { authHeaders } from "@/lib/auth-store";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -30,7 +30,7 @@ export default function Measurements() {
   const { data: rows = [], isLoading } = useQuery<Measurement[]>({
     queryKey: ["measurements"],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/measurements`, { headers: sessionHeaders() });
+      const r = await fetch(`${basePath}/api/measurements`, { headers: authHeaders() });
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -40,7 +40,7 @@ export default function Measurements() {
     mutationFn: async (payload: Record<string, number | undefined>) => {
       const r = await fetch(`${basePath}/api/measurements`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...sessionHeaders() },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error();
