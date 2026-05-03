@@ -5,11 +5,9 @@ import { requireAuth } from "./_lib/auth";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureTables();
 
-  let userId: string;
-  try {
-    userId = await requireAuth(req);
-  } catch {
-    res.status(401).json({ error: "Unauthorized" });
+  const userId = requireAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "No session ID" });
     return;
   }
 

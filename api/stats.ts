@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   await ensureTables();
-  const userId = await getUserId(req);
+  const userId = getUserId(req);
 
   const rows = userId
     ? await query<Row>(

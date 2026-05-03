@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Show } from "@clerk/react";
-import { Layout, AuthGate } from "@/components/Layout";
+import { Layout } from "@/components/Layout";
 import { Plus, CheckCircle2, Circle, Trophy, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { sessionHeaders } from "@/lib/session";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -21,18 +21,9 @@ const GOAL_TYPES = [
   { value: "custom",      label: "Custom",    emoji: "🎯" },
 ];
 
-export default function Goals() {
-  return (
-    <Layout title="Fitness Goals">
-      <Show when="signed-in"><AuthedGoals /></Show>
-      <Show when="signed-out"><AuthGate message="Sign in to set and track your fitness goals" /></Show>
-    </Layout>
-  );
-}
-
 const emptyForm = { goalType: "weight", title: "", targetValue: "", currentValue: "", unit: "", deadline: "" };
 
-function AuthedGoals() {
+export default function Goals() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const { toast } = useToast();
@@ -41,7 +32,7 @@ function AuthedGoals() {
   const { data: goals = [], isLoading } = useQuery<Goal[]>({
     queryKey: ["goals"],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/goals`, { credentials: "include" });
+      const r = await fetch(`${basePath}/api/goals`, { headers: sessionHeaders() });
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -50,8 +41,8 @@ function AuthedGoals() {
   const addMutation = useMutation({
     mutationFn: async (payload: any) => {
       const r = await fetch(`${basePath}/api/goals`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...sessionHeaders() },
         body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error();
@@ -69,8 +60,8 @@ function AuthedGoals() {
   const toggleMutation = useMutation({
     mutationFn: async ({ id, completed }: { id: number; completed: boolean }) => {
       const r = await fetch(`${basePath}/api/goals/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...sessionHeaders() },
         body: JSON.stringify({ completed }),
       });
       if (!r.ok) throw new Error();
@@ -96,125 +87,122 @@ function AuthedGoals() {
   const completed = goals.filter(g => g.completed);
 
   return (
-    <div className="px-4 pb-6 max-w-lg mx-auto space-y-4">
+    <Layout title="Fitness Goals">
+      <div className="px-4 pb-6 max-w-lg mx-auto space-y-4">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">{active.length} active · {completed.length} completed</p>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Goal
-        </button>
-      </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-zinc-500">{active.length} active · {completed.length} completed</p>
+          <button
+            onClick={() => setShowForm(v => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Goal
+          </button>
+        </div>
 
-      {/* Form */}
-      {showForm && (
-        <div className="rounded-2xl bg-card border border-white/8 p-4 space-y-3">
-          <p className="text-sm font-bold text-white">New Goal</p>
+        {showForm && (
+          <div className="rounded-2xl bg-card border border-white/8 p-4 space-y-3">
+            <p className="text-sm font-bold text-white">New Goal</p>
 
-          <div>
-            <label className="block text-xs text-zinc-500 mb-2">Goal Type</label>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-2">Goal Type</label>
+              <div className="grid grid-cols-3 gap-2">
+                {GOAL_TYPES.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => setForm(f => ({ ...f, goalType: t.value }))}
+                    className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-colors ${form.goalType === t.value ? "border-primary bg-primary/10" : "border-white/8 hover:border-white/15"}`}
+                  >
+                    <span className="text-lg">{t.emoji}</span>
+                    <span className="text-xs font-medium text-white">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1.5">Title *</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Describe your goal…"
+                className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-primary"
+              />
+            </div>
+
             <div className="grid grid-cols-3 gap-2">
-              {GOAL_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  onClick={() => setForm(f => ({ ...f, goalType: t.value }))}
-                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-colors ${form.goalType === t.value ? "border-primary bg-primary/10" : "border-white/8 hover:border-white/15"}`}
-                >
-                  <span className="text-lg">{t.emoji}</span>
-                  <span className="text-xs font-medium text-white">{t.label}</span>
-                </button>
+              {[
+                { key: "currentValue", label: "Current", ph: "80" },
+                { key: "targetValue",  label: "Target",  ph: "75" },
+                { key: "unit",         label: "Unit",    ph: "kg" },
+              ].map(({ key, label, ph }) => (
+                <div key={key}>
+                  <label className="block text-xs text-zinc-500 mb-1.5">{label}</label>
+                  <input
+                    type={key === "unit" ? "text" : "number"}
+                    value={(form as any)[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    placeholder={ph}
+                    className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-primary"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1.5">Deadline (optional)</label>
+              <input
+                type="date"
+                value={form.deadline}
+                onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
+                className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl border border-white/8 text-zinc-400 text-sm hover:text-white transition-colors">
+                Cancel
+              </button>
+              <button onClick={submit} disabled={!form.title || addMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {addMutation.isPending ? "Saving…" : "Create Goal"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isLoading && <div className="h-40 rounded-2xl skeleton" />}
+        {!isLoading && goals.length === 0 && !showForm && (
+          <div className="flex flex-col items-center py-16 gap-3">
+            <Target className="w-10 h-10 text-zinc-700" />
+            <p className="text-zinc-500 text-sm">No goals yet. Set your first goal!</p>
+          </div>
+        )}
+
+        {active.length > 0 && (
+          <div>
+            <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-3">Active Goals</p>
+            <div className="space-y-2">
+              {active.map(g => (
+                <GoalCard key={g.id} goal={g} onToggle={() => toggleMutation.mutate({ id: g.id, completed: true })} />
               ))}
             </div>
           </div>
+        )}
 
+        {completed.length > 0 && (
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Title *</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="Describe your goal…"
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-primary"
-            />
+            <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-3">Completed</p>
+            <div className="space-y-2">
+              {completed.map(g => (
+                <GoalCard key={g.id} goal={g} onToggle={() => toggleMutation.mutate({ id: g.id, completed: false })} />
+              ))}
+            </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { key: "currentValue", label: "Current", ph: "80" },
-              { key: "targetValue",  label: "Target",  ph: "75" },
-              { key: "unit",         label: "Unit",     ph: "kg" },
-            ].map(({ key, label, ph }) => (
-              <div key={key}>
-                <label className="block text-xs text-zinc-500 mb-1.5">{label}</label>
-                <input
-                  type={key === "unit" ? "text" : "number"}
-                  value={(form as any)[key]}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  placeholder={ph}
-                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-primary"
-                />
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Deadline (optional)</label>
-            <input
-              type="date"
-              value={form.deadline}
-              onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl border border-white/8 text-zinc-400 text-sm hover:text-white transition-colors">
-              Cancel
-            </button>
-            <button onClick={submit} disabled={!form.title || addMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
-              {addMutation.isPending ? "Saving…" : "Create Goal"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Empty */}
-      {isLoading && <div className="h-40 rounded-2xl skeleton" />}
-      {!isLoading && goals.length === 0 && !showForm && (
-        <div className="flex flex-col items-center py-16 gap-3">
-          <Target className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 text-sm">No goals yet. Set your first goal!</p>
-        </div>
-      )}
-
-      {/* Active */}
-      {active.length > 0 && (
-        <div>
-          <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-3">Active Goals</p>
-          <div className="space-y-2">
-            {active.map(g => (
-              <GoalCard key={g.id} goal={g} onToggle={() => toggleMutation.mutate({ id: g.id, completed: true })} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Completed */}
-      {completed.length > 0 && (
-        <div>
-          <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-3">Completed</p>
-          <div className="space-y-2">
-            {completed.map(g => (
-              <GoalCard key={g.id} goal={g} onToggle={() => toggleMutation.mutate({ id: g.id, completed: false })} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </Layout>
   );
 }
 

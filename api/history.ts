@@ -13,7 +13,7 @@ interface ClassificationRow {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureTables();
-  const userId = await getUserId(req);
+  const userId = getUserId(req);
 
   if (req.method === "GET") {
     const rows = userId
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const [row] = await query<ClassificationRow>(
       "INSERT INTO classifications (user_id, physique_type, confidence, body_metrics) VALUES ($1, $2, $3, $4) RETURNING *",
-      [userId ?? null, physiqueType, confidence, JSON.stringify(bodyMetrics)]
+      [userId, physiqueType, confidence, JSON.stringify(bodyMetrics)]
     );
     res.status(201).json({
       id: row.id,
