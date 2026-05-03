@@ -1,14 +1,12 @@
 import { Router } from "express";
 import { spawn } from "child_process";
 import path from "path";
-import { fileURLToPath } from "url";
 import { ClassifyPhysiqueBody } from "@workspace/api-zod";
 import { db, classificationsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
 
 const router = Router();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PYTHON_SCRIPT = path.resolve(__dirname, "../../../../python/predict.py");
+const PYTHON_SCRIPT = path.resolve(process.cwd(), "python/predict.py");
 
 async function runPythonClassifier(input: object): Promise<object> {
   return new Promise((resolve, reject) => {

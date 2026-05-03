@@ -3,6 +3,11 @@
   "outputDirectory": "artifacts/fitness-classifier/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@5"
+    }
+  },
   "rewrites": [
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ],

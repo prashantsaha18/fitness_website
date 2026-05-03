@@ -47,3 +47,15 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Vercel
+.vercel/
+
+# Environment
+.env
+.env.local
+.env.production.local
+
+# Python model artifacts (regenerated via train_model.py)
+artifacts/api-server/python/model.joblib
+artifacts/api-server/python/model_meta.json
