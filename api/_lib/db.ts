@@ -32,6 +32,17 @@ let tablesEnsured = false;
 
 export async function ensureTables(): Promise<void> {
   if (tablesEnsured) return;
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    )
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS classifications (
       id SERIAL PRIMARY KEY,
@@ -43,6 +54,7 @@ export async function ensureTables(): Promise<void> {
     )
   `);
   await query(`ALTER TABLE classifications ADD COLUMN IF NOT EXISTS user_id TEXT`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS user_profiles (
       user_id TEXT PRIMARY KEY,
@@ -58,6 +70,7 @@ export async function ensureTables(): Promise<void> {
       updated_at TIMESTAMP DEFAULT NOW() NOT NULL
     )
   `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS body_measurements (
       id SERIAL PRIMARY KEY,
@@ -72,6 +85,7 @@ export async function ensureTables(): Promise<void> {
       created_at TIMESTAMP DEFAULT NOW() NOT NULL
     )
   `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS fitness_goals (
       id SERIAL PRIMARY KEY,
@@ -87,6 +101,7 @@ export async function ensureTables(): Promise<void> {
       updated_at TIMESTAMP DEFAULT NOW() NOT NULL
     )
   `);
+
   tablesEnsured = true;
 }
 
