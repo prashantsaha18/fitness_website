@@ -4,11 +4,6 @@
   "buildCommand": "pnpm --filter @workspace/fitness-classifier run build:vercel",
   "outputDirectory": "artifacts/fitness-classifier/dist",
   "framework": null,
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "@vercel/node@5"
-    }
-  },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
