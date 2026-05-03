@@ -17,6 +17,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _defaultHeadersGetter: (() => HeadersInit) | null = null;
+
+/**
+ * Register a function that returns headers to attach to every request.
+ * Useful for injecting session IDs or other custom headers globally.
+ * Pass `null` to clear.
+ */
+export function setDefaultHeaders(getter: (() => HeadersInit) | null): void {
+  _defaultHeadersGetter = getter;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -335,7 +345,12 @@ export async function customFetch<T = unknown>(
     throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
   }
 
-  const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  const defaultHeaders = _defaultHeadersGetter ? _defaultHeadersGetter() : undefined;
+  const headers = mergeHeaders(
+    isRequest(input) ? input.headers : undefined,
+    defaultHeaders,
+    headersInit,
+  );
 
   if (
     typeof init.body === "string" &&
