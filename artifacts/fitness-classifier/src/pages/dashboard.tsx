@@ -6,7 +6,8 @@ import {
   ChevronRight, Award, Activity, Zap, Plus,
 } from "lucide-react";
 import { Link } from "wouter";
-import { sessionHeaders } from "@/lib/session";
+import { authHeaders } from "@/lib/auth-store";
+import { useAuthStore } from "@/lib/auth-store";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,11 +29,12 @@ const typeStyle: Record<string, { color: string; ring: string; text: string }> =
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const user = useAuthStore(s => s.user);
 
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/dashboard`, { headers: sessionHeaders() });
+      const r = await fetch(`${basePath}/api/dashboard`, { headers: authHeaders() });
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -51,7 +53,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-zinc-500 text-sm">{greeting},</p>
-            <h2 className="text-2xl font-bold text-white">Athlete 👋</h2>
+            <h2 className="text-2xl font-bold text-white">{user?.name ?? "Athlete"} 👋</h2>
           </div>
           {(data?.streak ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/15 border border-orange-500/25">
