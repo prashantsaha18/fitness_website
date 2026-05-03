@@ -54,7 +54,7 @@ export default function Stats() {
                   { label: "Skinny",     key: "skinny"     },
                   { label: "Overweight", key: "overweight" },
                 ].map(({ label, key }) => {
-                  const val = stats.breakdown[key] ?? 0;
+                  const val = (stats.breakdown as Record<string, number>)[key] ?? 0;
                   const pct = stats.totalClassifications > 0
                     ? (val / stats.totalClassifications) * 100
                     : 0;

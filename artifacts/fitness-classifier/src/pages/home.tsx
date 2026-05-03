@@ -40,9 +40,8 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const { FilesetResolver, PoseLandmarker } = await import(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"
-        );
+        // @ts-ignore
+        const { FilesetResolver, PoseLandmarker } = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
         );
