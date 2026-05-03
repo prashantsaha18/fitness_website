@@ -157,6 +157,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.3.5
       '@types/pg':
         specifier: ^8.18.0
         version: 8.18.0
