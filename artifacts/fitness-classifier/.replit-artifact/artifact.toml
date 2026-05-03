@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Fitness Physique Classifier"
+version = "1.0.0"
+id = "artifacts/fitness-classifier"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21098
+
+[services.development]
+run = "pnpm --filter @workspace/fitness-classifier run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/fitness-classifier", "run", "build" ]
+publicDir = "artifacts/fitness-classifier/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21098"
+BASE_PATH = "/"

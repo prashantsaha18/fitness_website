@@ -1,0 +1,21 @@
+{
+  "accuracy": 1.0,
+  "features": [
+    "shoulder_hip_ratio",
+    "torso_leg_ratio",
+    "waist_shoulder_ratio",
+    "arm_torso_ratio",
+    "bmi_proxy",
+    "symmetry_score",
+    "posture_score",
+    "muscle_visibility_score",
+    "limb_proportion_score",
+    "body_volume_proxy"
+  ],
+  "classes": [
+    "skinny",
+    "athletic",
+    "overweight"
+  ],
+  "n_samples": 10000
+}

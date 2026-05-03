@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Fitness Physique Classifier API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: classify
+    description: Body type classification
+  - name: workouts
+    description: Workout recommendations
+  - name: stats
+    description: App statistics
 paths:
   /healthz:
     get:
@@ -24,6 +30,114 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /classify:
+    post:
+      operationId: classifyPhysique
+      tags: [classify]
+      summary: Classify body physique
+      description: Takes pose landmarks and body metrics to classify physique type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassifyRequest"
+      responses:
+        "200":
+          description: Classification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassifyResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workouts/{physiqueType}:
+    get:
+      operationId: getWorkoutPlan
+      tags: [workouts]
+      summary: Get personalized workout plan
+      description: Returns a tailored workout plan for a given physique type
+      parameters:
+        - name: physiqueType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [athletic, skinny, overweight]
+        - name: goal
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [muscle_gain, fat_loss, endurance, flexibility, general_fitness]
+        - name: fitnessLevel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+      responses:
+        "200":
+          description: Workout plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutPlan"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get classification statistics
+      description: Returns aggregate stats on classifications performed
+      responses:
+        "200":
+          description: App statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppStats"
+
+  /history:
+    get:
+      operationId: getHistory
+      tags: [classify]
+      summary: Get recent classification history
+      description: Returns list of recent classification results
+      responses:
+        "200":
+          description: Classification history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryItem"
+    post:
+      operationId: saveClassification
+      tags: [classify]
+      summary: Save classification result
+      description: Persists a classification result to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveClassificationRequest"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +148,265 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error
+
+    PoseLandmark:
+      type: object
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+        visibility:
+          type: number
+      required:
+        - x
+        - y
+        - z
+
+    ClassifyRequest:
+      type: object
+      properties:
+        landmarks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoseLandmark"
+          description: MediaPipe pose landmarks (33 points)
+        height:
+          type: number
+          description: Height in cm (optional)
+        weight:
+          type: number
+          description: Weight in kg (optional)
+        age:
+          type: number
+          description: Age in years (optional)
+        gender:
+          type: string
+          enum: [male, female, other]
+      required:
+        - landmarks
+
+    ClassifyResult:
+      type: object
+      properties:
+        physiqueType:
+          type: string
+          enum: [athletic, skinny, overweight]
+        confidence:
+          type: number
+          description: Confidence score 0-1
+        probabilities:
+          type: object
+          properties:
+            athletic:
+              type: number
+            skinny:
+              type: number
+            overweight:
+              type: number
+          required:
+            - athletic
+            - skinny
+            - overweight
+        bodyMetrics:
+          $ref: "#/components/schemas/BodyMetrics"
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - physiqueType
+        - confidence
+        - probabilities
+        - bodyMetrics
+        - recommendations
+
+    BodyMetrics:
+      type: object
+      properties:
+        shoulderHipRatio:
+          type: number
+        torsoLegRatio:
+          type: number
+        symmetryScore:
+          type: number
+        postureScore:
+          type: number
+        bmi:
+          type: number
+      required:
+        - shoulderHipRatio
+        - torsoLegRatio
+        - symmetryScore
+        - postureScore
+
+    WorkoutPlan:
+      type: object
+      properties:
+        physiqueType:
+          type: string
+        goal:
+          type: string
+        fitnessLevel:
+          type: string
+        weeklySchedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayPlan"
+        nutritionTips:
+          type: array
+          items:
+            type: string
+        progressMilestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Milestone"
+      required:
+        - physiqueType
+        - goal
+        - fitnessLevel
+        - weeklySchedule
+        - nutritionTips
+        - progressMilestones
+
+    DayPlan:
+      type: object
+      properties:
+        day:
+          type: string
+        focus:
+          type: string
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exercise"
+        durationMinutes:
+          type: number
+        restDay:
+          type: boolean
+      required:
+        - day
+        - focus
+        - exercises
+        - durationMinutes
+        - restDay
+
+    Exercise:
+      type: object
+      properties:
+        name:
+          type: string
+        sets:
+          type: number
+        reps:
+          type: string
+        restSeconds:
+          type: number
+        description:
+          type: string
+        muscleGroups:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+      required:
+        - name
+        - sets
+        - reps
+        - restSeconds
+        - description
+        - muscleGroups
+        - difficulty
+
+    Milestone:
+      type: object
+      properties:
+        week:
+          type: number
+        title:
+          type: string
+        description:
+          type: string
+      required:
+        - week
+        - title
+        - description
+
+    AppStats:
+      type: object
+      properties:
+        totalClassifications:
+          type: number
+        breakdown:
+          type: object
+          properties:
+            athletic:
+              type: number
+            skinny:
+              type: number
+            overweight:
+              type: number
+          required:
+            - athletic
+            - skinny
+            - overweight
+        averageConfidence:
+          type: number
+        recentActivity:
+          type: array
+          items:
+            type: string
+      required:
+        - totalClassifications
+        - breakdown
+        - averageConfidence
+        - recentActivity
+
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: number
+        physiqueType:
+          type: string
+          enum: [athletic, skinny, overweight]
+        confidence:
+          type: number
+        createdAt:
+          type: string
+        bodyMetrics:
+          $ref: "#/components/schemas/BodyMetrics"
+      required:
+        - id
+        - physiqueType
+        - confidence
+        - createdAt
+        - bodyMetrics
+
+    SaveClassificationRequest:
+      type: object
+      properties:
+        physiqueType:
+          type: string
+          enum: [athletic, skinny, overweight]
+        confidence:
+          type: number
+        bodyMetrics:
+          $ref: "#/components/schemas/BodyMetrics"
+      required:
+        - physiqueType
+        - confidence
+        - bodyMetrics
