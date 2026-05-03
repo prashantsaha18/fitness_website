@@ -30,7 +30,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
-const clerkProxyUrl = (import.meta.env.VITE_CLERK_PROXY_URL || "/api/__clerk") as string;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)

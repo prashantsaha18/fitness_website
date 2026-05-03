@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { query, ensureTable } from "./_lib/db";
+import { query, ensureTables } from "./_lib/db";
+import { getUserId } from "./_lib/auth";
 
 interface Row {
   physique_type: string;
@@ -13,11 +14,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  await ensureTable();
+  await ensureTables();
+  const userId = await getUserId(req);
 
-  const rows = await query<Row>(
-    "SELECT physique_type, confidence, created_at FROM classifications ORDER BY created_at DESC"
-  );
+  const rows = userId
+    ? await query<Row>(
+        "SELECT physique_type, confidence, created_at FROM classifications WHERE user_id = $1 ORDER BY created_at DESC",
+        [userId]
+      )
+    : await query<Row>(
+        "SELECT physique_type, confidence, created_at FROM classifications ORDER BY created_at DESC"
+      );
 
   const breakdown: Record<string, number> = { athletic: 0, skinny: 0, overweight: 0 };
   let totalConfidence = 0;

@@ -1,7 +1,8 @@
 {
-  "buildCommand": "pnpm install && pnpm --filter @workspace/fitness-classifier run build:vercel",
-  "outputDirectory": "artifacts/fitness-classifier/dist",
+  "version": 2,
   "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/fitness-classifier run build:vercel",
+  "outputDirectory": "artifacts/fitness-classifier/dist",
   "framework": null,
   "functions": {
     "api/**/*.ts": {
@@ -9,7 +10,13 @@
     }
   },
   "rewrites": [
-    { "source": "/((?!api).*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
   ],
   "env": {
     "NODE_ENV": "production"

@@ -9,6 +9,9 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
+  "dependencies": {
+    "@clerk/backend": "^1.26.0"
+  },
   "devDependencies": {
     "@types/pg": "^8.18.0",
     "@vercel/node": "^5.7.15",

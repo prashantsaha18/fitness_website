@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { query, ensureTable } from "./_lib/db";
+import { query, ensureTables } from "./_lib/db";
+import { getUserId } from "./_lib/auth";
 
 interface ClassificationRow {
   id: number;
+  user_id: string | null;
   physique_type: string;
   confidence: number;
   body_metrics: object;
@@ -10,12 +12,19 @@ interface ClassificationRow {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  await ensureTable();
+  await ensureTables();
+  const userId = await getUserId(req);
 
   if (req.method === "GET") {
-    const rows = await query<ClassificationRow>(
-      "SELECT id, physique_type, confidence, body_metrics, created_at FROM classifications ORDER BY created_at DESC LIMIT 20"
-    );
+    const rows = userId
+      ? await query<ClassificationRow>(
+          "SELECT id, user_id, physique_type, confidence, body_metrics, created_at FROM classifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20",
+          [userId]
+        )
+      : await query<ClassificationRow>(
+          "SELECT id, user_id, physique_type, confidence, body_metrics, created_at FROM classifications ORDER BY created_at DESC LIMIT 20"
+        );
+
     res.json(
       rows.map((r) => ({
         id: r.id,
@@ -35,8 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     const [row] = await query<ClassificationRow>(
-      "INSERT INTO classifications (physique_type, confidence, body_metrics) VALUES ($1, $2, $3) RETURNING *",
-      [physiqueType, confidence, JSON.stringify(bodyMetrics)]
+      "INSERT INTO classifications (user_id, physique_type, confidence, body_metrics) VALUES ($1, $2, $3, $4) RETURNING *",
+      [userId ?? null, physiqueType, confidence, JSON.stringify(bodyMetrics)]
     );
     res.status(201).json({
       id: row.id,
