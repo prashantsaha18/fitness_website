@@ -2,8 +2,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { setDefaultHeaders } from "@workspace/api-client-react";
-import { sessionHeaders } from "@/lib/session";
+import { authHeaders } from "@/lib/auth-store";
 
-setDefaultHeaders(() => sessionHeaders());
+setDefaultHeaders(() => authHeaders());
 
 createRoot(document.getElementById("root")!).render(<App />);
