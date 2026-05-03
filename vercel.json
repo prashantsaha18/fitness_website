@@ -1,7 +1,7 @@
 {
   "version": 2,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/fitness-classifier run build:vercel",
+  "buildCommand": "bash -c 'cd artifacts/fitness-classifier && pnpm run build:vercel'",
   "outputDirectory": "artifacts/fitness-classifier/dist",
   "framework": null,
   "functions": {
