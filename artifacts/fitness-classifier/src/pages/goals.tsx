@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { Plus, CheckCircle2, Circle, Trophy, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { sessionHeaders } from "@/lib/session";
+import { authHeaders } from "@/lib/auth-store";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -32,7 +32,7 @@ export default function Goals() {
   const { data: goals = [], isLoading } = useQuery<Goal[]>({
     queryKey: ["goals"],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/goals`, { headers: sessionHeaders() });
+      const r = await fetch(`${basePath}/api/goals`, { headers: authHeaders() });
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -42,7 +42,7 @@ export default function Goals() {
     mutationFn: async (payload: any) => {
       const r = await fetch(`${basePath}/api/goals`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...sessionHeaders() },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error();
@@ -61,7 +61,7 @@ export default function Goals() {
     mutationFn: async ({ id, completed }: { id: number; completed: boolean }) => {
       const r = await fetch(`${basePath}/api/goals/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", ...sessionHeaders() },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ completed }),
       });
       if (!r.ok) throw new Error();
