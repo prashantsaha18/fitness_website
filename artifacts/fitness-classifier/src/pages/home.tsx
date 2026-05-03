@@ -1,250 +1,218 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Camera, Scan, Save, RefreshCw } from "lucide-react";
+import { Camera, ScanLine, RotateCcw, ChevronRight, Zap } from "lucide-react";
 import { Layout } from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useClassifyPhysique, useSaveClassification } from "@workspace/api-client-react";
 import { useAppStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 
-// Ensure global types are available for MediaPipe (loaded via CDN)
 declare global {
   interface Window {
     MediaPipePoseLandmarker: any;
-    MediaPipeFilesetResolver: any;
     MediaPipeDrawingUtils: any;
   }
 }
 
+const PHYSIQUE_CONFIG = {
+  athletic: { color: "#10b981", label: "Athletic", bg: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30" },
+  skinny:   { color: "#3b82f6", label: "Lean",     bg: "from-blue-500/20 to-blue-500/5 border-blue-500/30" },
+  overweight:{ color: "#f59e0b", label: "Bulky",   bg: "from-amber-500/20 to-amber-500/5 border-amber-500/30" },
+} as Record<string, { color: string; label: string; bg: string }>;
+
 export default function Home() {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef  = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const requestRef = useRef<number>(0);
-  
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isModelReady, setIsModelReady] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastLandmarks, setLastLandmarks] = useState<any>(null);
-  
+  const rafRef    = useRef<number>(0);
+
+  const [ready,      setReady]      = useState(false);
+  const [camActive,  setCamActive]  = useState(false);
+  const [analyzing,  setAnalyzing]  = useState(false);
+  const [landmarks,  setLandmarks]  = useState<any>(null);
   const [, setLocation] = useLocation();
   const { setLastResult, lastResult } = useAppStore();
   const { toast } = useToast();
-
   const classifyMutation = useClassifyPhysique();
   const saveMutation = useSaveClassification();
 
-  // Initialize MediaPipe
   useEffect(() => {
-    async function initMediaPipe() {
+    let cancelled = false;
+    (async () => {
       try {
-        const { FilesetResolver, PoseLandmarker } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
-        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { 
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", 
-            delegate: "GPU" 
+        const { FilesetResolver, PoseLandmarker } = await import(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"
+        );
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+        const lm = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+            delegate: "GPU",
           },
           runningMode: "VIDEO",
           numPoses: 1,
         });
-        landmarkerRef.current = poseLandmarker;
-        setIsModelReady(true);
-      } catch (err) {
-        console.error("Failed to initialize MediaPipe", err);
+        if (!cancelled) {
+          landmarkerRef.current = lm;
+          setReady(true);
+        }
+      } catch {
+        if (!cancelled) toast({ variant: "destructive", title: "Failed to load AI model" });
       }
-    }
-    initMediaPipe();
-    
+    })();
     return () => {
+      cancelled = true;
       stopCamera();
     };
   }, []);
 
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    cancelAnimationFrame(rafRef.current);
+    setCamActive(false);
+  };
+
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "user", width: 640, height: 480 } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: 640, height: 480 },
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
         streamRef.current = stream;
-        setIsCameraActive(true);
-        setLastResult(null); // Clear previous result when restarting camera
+        setLastResult(null);
+        setCamActive(true);
       }
-    } catch (err) {
-      console.error("Error accessing camera", err);
-      toast({
-        variant: "destructive",
-        title: "Camera Access Denied",
-        description: "Please allow camera access to use the analyzer."
-      });
+    } catch {
+      toast({ variant: "destructive", title: "Camera access denied", description: "Allow camera access to use the scanner." });
     }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
-    }
-    setIsCameraActive(false);
   };
 
   const drawLoop = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !landmarkerRef.current || !isCameraActive) return;
-    
-    const video = videoRef.current;
+    const video  = videoRef.current;
     const canvas = canvasRef.current;
+    const lm     = landmarkerRef.current;
+    if (!video || !canvas || !lm || !camActive) return;
     const ctx = canvas.getContext("2d");
-    
     if (!ctx) return;
-    
-    if (video.videoWidth > 0 && video.videoHeight > 0) {
-      canvas.width = video.videoWidth;
+    if (video.videoWidth > 0) {
+      canvas.width  = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      let startTimeMs = performance.now();
-      const results = landmarkerRef.current.detectForVideo(video, startTimeMs);
-      
+      const result = lm.detectForVideo(video, performance.now());
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      if (results.landmarks && results.landmarks.length > 0) {
-        // Save landmarks for classification
-        setLastLandmarks(results.landmarks[0]);
-        
-        // Draw skeleton
-        const drawingUtils = new window.MediaPipeDrawingUtils(ctx);
-        for (const landmark of results.landmarks) {
-          drawingUtils.drawConnectors(landmark, window.MediaPipePoseLandmarker.POSE_CONNECTIONS, {
-            color: "rgba(59, 130, 246, 0.8)", // Electric blue
-            lineWidth: 4
+      if (result.landmarks?.length > 0) {
+        setLandmarks(result.landmarks[0]);
+        const du = new window.MediaPipeDrawingUtils(ctx);
+        for (const lmk of result.landmarks) {
+          du.drawConnectors(lmk, window.MediaPipePoseLandmarker.POSE_CONNECTIONS, {
+            color: "rgba(59,130,246,0.6)", lineWidth: 3,
           });
-          drawingUtils.drawLandmarks(landmark, {
-            color: "#10b981", // Accent green
-            lineWidth: 2,
-            radius: 4
-          });
+          du.drawLandmarks(lmk, { color: "#10b981", lineWidth: 1, radius: 3 });
         }
       }
     }
-    
-    requestRef.current = requestAnimationFrame(drawLoop);
-  }, [isCameraActive]);
+    rafRef.current = requestAnimationFrame(drawLoop);
+  }, [camActive]);
 
   useEffect(() => {
-    if (isCameraActive) {
-      requestRef.current = requestAnimationFrame(drawLoop);
-    }
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [isCameraActive, drawLoop]);
+    if (camActive) rafRef.current = requestAnimationFrame(drawLoop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [camActive, drawLoop]);
 
-  const handleAnalyze = async () => {
-    if (!lastLandmarks) {
-      toast({
-        title: "No pose detected",
-        description: "Please step into the frame and make sure your full body is visible.",
-        variant: "destructive"
-      });
+  const analyze = async () => {
+    if (!landmarks) {
+      toast({ title: "No pose detected", description: "Step into frame so your full body is visible.", variant: "destructive" });
       return;
     }
-
-    setIsAnalyzing(true);
-    
+    setAnalyzing(true);
     try {
-      const result = await classifyMutation.mutateAsync({
-        data: {
-          landmarks: lastLandmarks
-        }
-      });
-      
+      const result = await classifyMutation.mutateAsync({ data: { landmarks } });
       setLastResult(result);
       stopCamera();
-      
-      // Automatically save it to history
       saveMutation.mutate({
-        data: {
-          physiqueType: result.physiqueType,
-          confidence: result.confidence,
-          bodyMetrics: result.bodyMetrics
-        }
+        data: { physiqueType: result.physiqueType, confidence: result.confidence, bodyMetrics: result.bodyMetrics },
       });
-      
-    } catch (err) {
-      console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Analysis failed",
-        description: "There was an error processing your image."
-      });
+    } catch {
+      toast({ variant: "destructive", title: "Analysis failed", description: "Please try again." });
     } finally {
-      setIsAnalyzing(false);
+      setAnalyzing(false);
     }
   };
 
-  const handleSaveAndContinue = () => {
-    setLocation("/results");
-  };
+  const cfg = lastResult ? (PHYSIQUE_CONFIG[lastResult.physiqueType] ?? PHYSIQUE_CONFIG.athletic) : null;
 
   return (
-    <Layout title="PHYSIQUE.AI">
-      <div className="flex flex-col items-center justify-center p-4 max-w-md mx-auto w-full gap-6">
-        
-        <div className="w-full relative aspect-[3/4] bg-muted/30 rounded-2xl overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
-          {(!isCameraActive && !lastResult) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-background/80 backdrop-blur-sm">
-              <div className="p-4 rounded-full bg-primary/10 text-primary">
-                <Scan className="w-8 h-8" />
+    <Layout>
+      <div className="flex flex-col items-center px-4 py-4 gap-4 max-w-md mx-auto">
+
+        {/* Camera viewport */}
+        <div className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden bg-zinc-950 border border-white/8 shadow-2xl">
+
+          {/* Idle state */}
+          {!camActive && !lastResult && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-10">
+              <div className={`w-20 h-20 rounded-full border-2 border-primary flex items-center justify-center ${ready ? "scan-ring" : ""}`}>
+                <Camera className="w-8 h-8 text-primary" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground text-center px-8">
-                Position your device to capture your full body. For best results, wear form-fitting clothing.
-              </p>
-              <Button 
-                onClick={startCamera} 
-                disabled={!isModelReady}
-                className="mt-2"
+              <div className="text-center px-6">
+                <p className="text-white font-semibold mb-1">AI Physique Scanner</p>
+                <p className="text-zinc-500 text-sm">Stand in full view for best results</p>
+              </div>
+              <button
+                onClick={startCamera}
+                disabled={!ready}
+                className="px-6 py-3 rounded-2xl bg-primary text-white font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-primary/25"
               >
-                <Camera className="w-4 h-4 mr-2" />
-                {isModelReady ? "Start Camera" : "Loading Model..."}
-              </Button>
+                <Camera className="w-4 h-4" />
+                {ready ? "Start Camera" : "Loading AI…"}
+              </button>
             </div>
           )}
-          
-          <video 
-            ref={videoRef} 
-            className={`absolute inset-0 w-full h-full object-cover ${(lastResult || !isCameraActive) ? 'hidden' : 'block'}`}
-            playsInline
-            muted
-          />
-          <canvas 
-            ref={canvasRef} 
-            className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(lastResult || !isCameraActive) ? 'hidden' : 'block'}`}
-          />
-          
-          {lastResult && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-background/80 to-background/95 backdrop-blur-md z-20 animate-in fade-in duration-500">
-              <div className="text-center mb-8">
-                <p className="text-sm font-bold tracking-widest text-primary uppercase mb-2">Analysis Complete</p>
-                <h2 className="text-4xl font-black capitalize tracking-tight">{lastResult.physiqueType}</h2>
-              </div>
-              
-              <div className="w-full space-y-4 max-w-[280px]">
-                <div className="flex justify-between items-end mb-1">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Confidence</span>
-                  <span className="text-xl font-bold font-mono text-primary">{(lastResult.confidence * 100).toFixed(1)}%</span>
+
+          {/* Live video + skeleton overlay */}
+          <video ref={videoRef} className={`absolute inset-0 w-full h-full object-cover ${camActive && !lastResult ? "block" : "hidden"}`} playsInline muted />
+          <canvas ref={canvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${camActive && !lastResult ? "block" : "hidden"}`} />
+
+          {/* Scanning frame corners */}
+          {camActive && !lastResult && (
+            <div className="absolute inset-4 pointer-events-none">
+              <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-primary rounded-tl-lg" />
+              <span className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-primary rounded-tr-lg" />
+              <span className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-primary rounded-bl-lg" />
+              <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-primary rounded-br-lg" />
+              {landmarks && (
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs text-emerald-400 font-medium">Pose Detected</span>
                 </div>
-                <Progress value={lastResult.confidence * 100} className="h-3" />
-                
-                <div className="grid grid-cols-3 gap-2 mt-8">
+              )}
+            </div>
+          )}
+
+          {/* Result overlay */}
+          {lastResult && cfg && (
+            <div className={`absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br ${cfg.bg} border-0`}>
+              <div className="text-center space-y-3 px-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10">
+                  <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Analysis Complete</span>
+                </div>
+                <h2 className="text-5xl font-black text-white tracking-tight capitalize">{lastResult.physiqueType}</h2>
+                <p className="text-lg font-bold" style={{ color: cfg.color }}>
+                  {(lastResult.confidence * 100).toFixed(1)}% confidence
+                </p>
+
+                {/* Mini probability bars */}
+                <div className="grid grid-cols-3 gap-2 mt-2">
                   {Object.entries(lastResult.probabilities).map(([type, prob]) => (
-                    <div key={type} className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{type}</span>
-                      <span className="text-sm font-bold font-mono text-white">{(prob * 100).toFixed(0)}%</span>
+                    <div key={type} className="rounded-xl bg-black/30 p-2 text-center">
+                      <p className="text-xs text-zinc-400 capitalize mb-1">{type}</p>
+                      <p className="text-sm font-bold text-white font-mono">{((prob as number) * 100).toFixed(0)}%</p>
                     </div>
                   ))}
                 </div>
@@ -253,43 +221,39 @@ export default function Home() {
           )}
         </div>
 
+        {/* Action buttons */}
         <div className="w-full flex gap-3">
-          {(!lastResult && isCameraActive) ? (
-            <Button 
-              size="lg" 
-              className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !lastLandmarks}
+          {camActive && !lastResult ? (
+            <button
+              onClick={analyze}
+              disabled={analyzing || !landmarks}
+              className="flex-1 h-14 rounded-2xl bg-primary text-white font-bold text-base flex items-center justify-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50 shadow-lg shadow-primary/25 active:scale-95"
             >
-              {isAnalyzing ? (
-                <div className="flex items-center animate-pulse">
-                  <Scan className="w-5 h-5 mr-2 animate-spin" />
-                  Analyzing...
-                </div>
+              {analyzing ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analyzing…</>
               ) : (
-                "Capture & Analyze"
+                <><ScanLine className="w-5 h-5" /> Capture & Analyze</>
               )}
-            </Button>
+            </button>
           ) : lastResult ? (
             <>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="w-14 h-14 px-0 shrink-0 border-white/10 hover:bg-white/5"
-                onClick={startCamera}
+              <button
+                onClick={() => { setLastResult(null); startCamera(); }}
+                className="w-14 h-14 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
               >
-                <RefreshCw className="w-5 h-5" />
-              </Button>
-              <Button 
-                size="lg" 
-                className="flex-1 h-14 text-lg font-bold bg-white text-black hover:bg-gray-200 transition-all"
-                onClick={handleSaveAndContinue}
+                <RotateCcw className="w-5 h-5 text-zinc-400" />
+              </button>
+              <button
+                onClick={() => setLocation("/results")}
+                className="flex-1 h-14 rounded-2xl bg-white text-black font-bold text-sm flex items-center justify-center gap-2 hover:bg-zinc-100 transition-colors active:scale-95"
               >
-                View Detailed Results
-              </Button>
+                View Full Results
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </>
           ) : null}
         </div>
+
       </div>
     </Layout>
   );

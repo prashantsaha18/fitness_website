@@ -45,35 +45,35 @@
 }
 
 :root, .dark {
-  --background: 0 0% 3%;
+  --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
 
-  --border: 0 0% 12%;
+  --border: 240 3.7% 15.9%;
 
-  --card: 0 0% 6%;
+  --card: 240 10% 5.5%;
   --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 12%;
+  --card-border: 240 3.7% 12%;
 
-  --popover: 0 0% 6%;
+  --popover: 240 10% 5.5%;
   --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 12%;
+  --popover-border: 240 3.7% 12%;
 
-  --primary: 217 91% 60%; /* Electric Blue */
+  --primary: 217 91% 60%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 142 76% 36%; /* Neon Green */
+  --secondary: 142 71% 45%;
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 65%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
 
-  --accent: 0 0% 12%;
+  --accent: 240 3.7% 15.9%;
   --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
 
-  --input: 0 0% 15%;
+  --input: 240 3.7% 15.9%;
   --ring: 217 91% 60%;
 
   --radius: 0.75rem;
@@ -85,14 +85,35 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
   }
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
 }
 
-.glass-panel {
-  @apply bg-card/40 backdrop-blur-xl border border-white/10;
+.glass {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.07);
 }
 
-.cl-formFieldInput::placeholder {
-  color: #71717a;
-  opacity: 1;
+.scan-ring {
+  animation: scan-pulse 2s ease-in-out infinite;
 }
+@keyframes scan-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(59,130,246,0); }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.cl-formFieldInput::placeholder { color: #52525b; opacity: 1; }

@@ -1,59 +1,70 @@
-import React from "react";
-import { Clock, TrendingUp } from "lucide-react";
-import { Layout } from "@/components/Layout";
-import { useGetHistory } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { Show } from "@clerk/react";
+import { Layout, AuthGate } from "@/components/Layout";
+import { Camera } from "lucide-react";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface Classification {
+  id: number; physiqueType: string; confidence: number; bodyMetrics: any; createdAt: string;
+}
+
+const typeStyle: Record<string, { color: string; dot: string }> = {
+  athletic:   { color: "text-emerald-400", dot: "bg-emerald-500" },
+  skinny:     { color: "text-blue-400",    dot: "bg-blue-500"    },
+  overweight: { color: "text-amber-400",   dot: "bg-amber-500"   },
+};
 
 export default function History() {
-  const { data: history, isLoading } = useGetHistory();
+  return (
+    <Layout title="Scan History">
+      <Show when="signed-in"><AuthedHistory /></Show>
+      <Show when="signed-out"><AuthGate message="Sign in to view your scan history" /></Show>
+    </Layout>
+  );
+}
+
+function AuthedHistory() {
+  const { data: rows = [], isLoading } = useQuery<Classification[]>({
+    queryKey: ["history"],
+    queryFn: async () => {
+      const r = await fetch(`${basePath}/api/history`, { credentials: "include" });
+      if (!r.ok) throw new Error();
+      return r.json();
+    },
+  });
 
   return (
-    <Layout title="HISTORY">
-      <div className="max-w-md mx-auto p-4 space-y-4">
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full bg-white/5 rounded-xl animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-          ))
-        ) : history?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-            <Clock className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-bold text-white mb-1">No History Yet</h3>
-            <p className="text-sm text-muted-foreground">Your scanned classifications will appear here.</p>
+    <div className="px-4 pb-6 max-w-lg mx-auto space-y-3">
+      {isLoading && (
+        <div className="space-y-2">
+          {[0,1,2,3].map(i => <div key={i} className="h-20 rounded-2xl skeleton" />)}
+        </div>
+      )}
+
+      {!isLoading && rows.length === 0 && (
+        <div className="flex flex-col items-center py-16 gap-3">
+          <Camera className="w-10 h-10 text-zinc-700" />
+          <p className="text-zinc-500 text-sm">No scans yet. Start your first analysis!</p>
+        </div>
+      )}
+
+      {rows.map(r => {
+        const s = typeStyle[r.physiqueType] ?? typeStyle.athletic;
+        return (
+          <div key={r.id} className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-card border border-white/8">
+            <div className={`w-3 h-3 rounded-full ${s.dot} shrink-0`} />
+            <div className="flex-1 min-w-0">
+              <p className={`font-bold capitalize ${s.color}`}>{r.physiqueType}</p>
+              <p className="text-xs text-zinc-600 mt-0.5">{new Date(r.createdAt).toLocaleString()}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-bold font-mono text-white">{Math.round(r.confidence * 100)}%</p>
+              <p className="text-[10px] text-zinc-600">confidence</p>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {history?.map((item, i) => (
-              <div key={item.id} className="glass-panel p-4 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}>
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Badge variant="outline" className={`font-mono text-[10px] uppercase tracking-wider ${
-                      item.physiqueType === 'athletic' ? 'text-primary border-primary/30 bg-primary/10' : 
-                      item.physiqueType === 'overweight' ? 'text-orange-400 border-orange-400/30 bg-orange-400/10' : 
-                      'text-secondary border-secondary/30 bg-secondary/10'
-                    }`}>
-                      {item.physiqueType}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {format(new Date(item.createdAt), 'MMM dd, yyyy')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs font-medium text-gray-300">
-                    <span>Conf: {(item.confidence * 100).toFixed(0)}%</span>
-                    <span className="w-1 h-1 rounded-full bg-white/20"></span>
-                    <span>Sym: {(item.bodyMetrics.symmetryScore * 100).toFixed(0)}%</span>
-                  </div>
-                </div>
-                
-                <div className="w-10 h-10 rounded-full border border-white/10 bg-black/40 flex items-center justify-center text-primary shadow-inner">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Layout>
+        );
+      })}
+    </div>
   );
 }
