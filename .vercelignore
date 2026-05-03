@@ -1,0 +1,9 @@
+artifacts/api-server
+artifacts/mockup-sandbox
+attached_assets
+lib/db
+lib/api-zod
+scripts
+.replit
+replit.nix
+.local
