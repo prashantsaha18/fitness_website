@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { spawn } from "child_process";
 import path from "path";
+import { getAuth } from "@clerk/express";
 import { ClassifyPhysiqueBody } from "@workspace/api-zod";
 import { db, classificationsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 const PYTHON_SCRIPT = path.resolve(process.cwd(), "python/predict.py");
@@ -55,11 +56,24 @@ router.post("/classify", async (req, res) => {
 
 router.get("/history", async (req, res) => {
   try {
-    const rows = await db
-      .select()
-      .from(classificationsTable)
-      .orderBy(desc(classificationsTable.createdAt))
-      .limit(20);
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+
+    let rows;
+    if (userId) {
+      rows = await db
+        .select()
+        .from(classificationsTable)
+        .where(eq(classificationsTable.userId, userId))
+        .orderBy(desc(classificationsTable.createdAt))
+        .limit(20);
+    } else {
+      rows = await db
+        .select()
+        .from(classificationsTable)
+        .orderBy(desc(classificationsTable.createdAt))
+        .limit(20);
+    }
 
     res.json(
       rows.map((r) => ({
@@ -84,9 +98,13 @@ router.post("/history", async (req, res) => {
   }
 
   try {
+    const auth = getAuth(req);
+    const userId = auth?.userId ?? null;
+
     const [inserted] = await db
       .insert(classificationsTable)
       .values({
+        userId,
         physiqueType,
         confidence,
         bodyMetrics,
@@ -108,7 +126,12 @@ router.post("/history", async (req, res) => {
 
 router.get("/stats", async (req, res) => {
   try {
-    const rows = await db.select().from(classificationsTable);
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+
+    const rows = userId
+      ? await db.select().from(classificationsTable).where(eq(classificationsTable.userId, userId))
+      : await db.select().from(classificationsTable);
 
     const breakdown = { athletic: 0, skinny: 0, overweight: 0 } as Record<string, number>;
     let totalConfidence = 0;

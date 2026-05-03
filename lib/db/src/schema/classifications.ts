@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const classificationsTable = pgTable("classifications", {
   id: serial("id").primaryKey(),
+  userId: text("user_id"),
   physiqueType: text("physique_type").notNull(),
   confidence: real("confidence").notNull(),
   bodyMetrics: jsonb("body_metrics").notNull(),

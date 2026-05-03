@@ -1,3 +1,4 @@
+@layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -89,4 +90,9 @@
 
 .glass-panel {
   @apply bg-card/40 backdrop-blur-xl border border-white/10;
+}
+
+.cl-formFieldInput::placeholder {
+  color: #71717a;
+  opacity: 1;
 }

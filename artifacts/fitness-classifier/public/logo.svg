@@ -1,0 +1,6 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="40" height="40" rx="10" fill="#3b82f6"/>
+  <path d="M8 20 L14 20 L14 14 L18 14 L18 26 L22 26 L22 16 L26 16 L26 24 L32 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="48" y="26" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">PHYSIQUE</text>
+  <text x="48" y="37" font-family="Inter, sans-serif" font-weight="400" font-size="9" fill="#93c5fd" letter-spacing="3">.AI</text>
+</svg>
