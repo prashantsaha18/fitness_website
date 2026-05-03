@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Camera, Activity, Calculator, Ruler, Target, BarChart3, LayoutDashboard } from "lucide-react";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { Camera, Activity, Calculator, Ruler, Target, BarChart3, LayoutDashboard, LogOut } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,17 +9,39 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title }: LayoutProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { user, logout } = useAuthStore();
+  const qc = useQueryClient();
+
+  const handleLogout = () => {
+    logout();
+    qc.clear();
+    setLocation("/login");
+  };
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
       <header className="sticky top-0 z-50 h-14 px-4 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl">
-        <Link href="/">
+        <Link href="/dashboard">
           <span className="font-black text-base tracking-tight cursor-pointer">
             <span className="text-white">PHYSIQUE</span>
             <span className="text-primary">.AI</span>
           </span>
         </Link>
+        <div className="flex items-center gap-3">
+          {user && (
+            <span className="text-xs text-zinc-500 font-medium hidden sm:block">
+              {user.name}
+            </span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/8 text-zinc-500 hover:text-white hover:border-white/15 transition-colors text-xs font-medium"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">Sign out</span>
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto pb-20">
